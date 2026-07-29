@@ -5,7 +5,10 @@ description = "Python SDK for the Meet Schedule Open API — 面向第三方的�
 readme = "README.md"
 authors = [{ name = "Bail", email = "2915289604@qq.com" }]
 requires-python = ">=3.12"
-dependencies = ["httpx>=0.28.1"]
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.4",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12.0"]

@@ -14,12 +14,14 @@ Quick start::
 
     # Create an event
     event = client.events.create(
-        schedule_id="sch_xxx",
-        type="exam",
-        title="期中考试",
-        time_mode="range",
-        start_at="2025-11-10T08:00:00Z",
-        end_at="2025-11-10T10:00:00Z",
+        EventInput(
+            schedule_id="sch_xxx",
+            type="exam",
+            title="期中考试",
+            time_mode="range",
+            start_at="2025-11-10T08:00:00Z",
+            end_at="2025-11-10T10:00:00Z",
+        ),
     )
     print(f"Created event {event.id}")
 """
@@ -53,12 +55,15 @@ from meetschedule_sdk.models import (
     MeetingInput,
     Origin,
     Reminder,
+    ReminderAnchor,
     Schedule,
     ScheduleBundle,
     ScheduleInput,
+    Source,
     Task,
     TaskInput,
     TimeMode,
+    WeekStartDay,
 )
 
 __all__ = [
@@ -82,6 +87,9 @@ __all__ = [
     "TimeMode",
     "AdjustmentType",
     "Origin",
+    "ReminderAnchor",
+    "Source",
+    "WeekStartDay",
     # Models
     "ScheduleInput",
     "Schedule",

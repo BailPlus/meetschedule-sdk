@@ -94,7 +94,7 @@ class _AsyncSchedulesResource(_AsyncBaseResource):
         Requires scope ``schedule:read``.
         """
         data = await self._get("/open/v1/schedules")
-        return [Schedule(**item) for item in data]
+        return [Schedule.model_validate(item) for item in data]
 
     async def get(self, schedule_id: str) -> Schedule:
         """Get a single schedule by ID.
@@ -102,16 +102,20 @@ class _AsyncSchedulesResource(_AsyncBaseResource):
         Requires scope ``schedule:read``.
         """
         data = await self._get(f"/open/v1/schedules/{schedule_id}")
-        return Schedule(**data)
+        return Schedule.model_validate(data)
 
-    async def create(self, **kwargs: Any) -> Schedule:
+    async def create(self, input: ScheduleInput) -> Schedule:
         """Create a new schedule.
 
         Requires scope ``schedule:write``.
+
+        Parameters
+        ----------
+        input:
+            The schedule fields to create.
         """
-        body = ScheduleInput(**kwargs)
-        data = await self._post("/open/v1/schedules", body=body)
-        return Schedule(**data)
+        data = await self._post("/open/v1/schedules", body=input)
+        return Schedule.model_validate(data)
 
     async def update(self, schedule_id: str, **kwargs: Any) -> Schedule:
         """Update a schedule (partial).
@@ -119,7 +123,7 @@ class _AsyncSchedulesResource(_AsyncBaseResource):
         Requires scope ``schedule:write``.
         """
         data = await self._patch(f"/open/v1/schedules/{schedule_id}", body=kwargs)
-        return Schedule(**data)
+        return Schedule.model_validate(data)
 
     async def delete(self, schedule_id: str) -> None:
         """Delete a schedule and all its contents.
@@ -135,10 +139,10 @@ class _AsyncSchedulesResource(_AsyncBaseResource):
         """
         data = await self._get(f"/open/v1/schedules/{schedule_id}/full")
         return ScheduleBundle(
-            schedule=Schedule(**data["schedule"]),
-            courses=[Course(**c) for c in data["courses"]],
-            events=[Event(**e) for e in data["events"]],
-            adjustments=[Adjustment(**a) for a in data["adjustments"]],
+            schedule=Schedule.model_validate(data["schedule"]),
+            courses=[Course.model_validate(c) for c in data["courses"]],
+            events=[Event.model_validate(e) for e in data["events"]],
+            adjustments=[Adjustment.model_validate(a) for a in data["adjustments"]],
         )
 
     @property
@@ -166,19 +170,25 @@ class _AsyncCoursesResource(_AsyncBaseResource):
         Requires scope ``entities:read``.
         """
         data = await self._get(f"/open/v1/schedules/{schedule_id}/courses")
-        return [Course(**item) for item in data]
+        return [Course.model_validate(item) for item in data]
 
-    async def create(self, schedule_id: str, **kwargs: Any) -> Course:
+    async def create(self, schedule_id: str, input: CourseInput) -> Course:
         """Create a new course.
 
         Requires scope ``entities:write``.
+
+        Parameters
+        ----------
+        schedule_id:
+            The schedule to add the course to.
+        input:
+            The course fields to create.
         """
-        body = CourseInput(**kwargs)
         data = await self._post(
             f"/open/v1/schedules/{schedule_id}/courses",
-            body=body,
+            body=input,
         )
-        return Course(**data)
+        return Course.model_validate(data)
 
     async def update(self, course_id: str, **kwargs: Any) -> Course:
         """Update a course (partial).
@@ -186,7 +196,7 @@ class _AsyncCoursesResource(_AsyncBaseResource):
         Requires scope ``entities:write``.
         """
         data = await self._patch(f"/open/v1/courses/{course_id}", body=kwargs)
-        return Course(**data)
+        return Course.model_validate(data)
 
     async def delete(self, course_id: str) -> None:
         """Delete a course.
@@ -226,19 +236,23 @@ class _AsyncEventsResource(_AsyncBaseResource):
             f"/open/v1/schedules/{schedule_id}/events",
             params=params,
         )
-        return [Event(**item) for item in data]
+        return [Event.model_validate(item) for item in data]
 
-    async def create(self, schedule_id: str, **kwargs: Any) -> Event:
+    async def create(self, input: EventInput) -> Event:
         """Create a new event.
 
         Requires scope ``entities:write``.
+
+        Parameters
+        ----------
+        input:
+            The event fields to create. Must include ``schedule_id``.
         """
-        body = EventInput(schedule_id=schedule_id, **kwargs)
         data = await self._post(
-            f"/open/v1/schedules/{schedule_id}/events",
-            body=body,
+            f"/open/v1/schedules/{input.schedule_id}/events",
+            body=input,
         )
-        return Event(**data)
+        return Event.model_validate(data)
 
     async def update(self, event_id: str, **kwargs: Any) -> Event:
         """Update an event (partial).
@@ -246,7 +260,7 @@ class _AsyncEventsResource(_AsyncBaseResource):
         Requires scope ``entities:write``.
         """
         data = await self._patch(f"/open/v1/events/{event_id}", body=kwargs)
-        return Event(**data)
+        return Event.model_validate(data)
 
     async def delete(self, event_id: str) -> None:
         """Delete an event.
@@ -268,19 +282,23 @@ class _AsyncAdjustmentsResource(_AsyncBaseResource):
         Requires scope ``entities:read``.
         """
         data = await self._get(f"/open/v1/schedules/{schedule_id}/adjustments")
-        return [Adjustment(**item) for item in data]
+        return [Adjustment.model_validate(item) for item in data]
 
-    async def create(self, schedule_id: str, **kwargs: Any) -> Adjustment:
+    async def create(self, input: AdjustmentInput) -> Adjustment:
         """Create a new adjustment (cancel / makeup / reschedule).
 
         Requires scope ``entities:write``.
+
+        Parameters
+        ----------
+        input:
+            The adjustment fields to create. Must include ``schedule_id``.
         """
-        body = AdjustmentInput(schedule_id=schedule_id, **kwargs)
         data = await self._post(
-            f"/open/v1/schedules/{schedule_id}/adjustments",
-            body=body,
+            f"/open/v1/schedules/{input.schedule_id}/adjustments",
+            body=input,
         )
-        return Adjustment(**data)
+        return Adjustment.model_validate(data)
 
     async def delete(self, adjustment_id: str) -> None:
         """Delete an adjustment.
@@ -302,16 +320,20 @@ class _AsyncTasksResource(_AsyncBaseResource):
         Requires scope ``entities:read``.
         """
         data = await self._get("/open/v1/tasks")
-        return [Task(**item) for item in data]
+        return [Task.model_validate(item) for item in data]
 
-    async def create(self, **kwargs: Any) -> Task:
+    async def create(self, input: TaskInput) -> Task:
         """Create a new task.
 
         Requires scope ``entities:write``.
+
+        Parameters
+        ----------
+        input:
+            The task fields to create.
         """
-        body = TaskInput(**kwargs)
-        data = await self._post("/open/v1/tasks", body=body)
-        return Task(**data)
+        data = await self._post("/open/v1/tasks", body=input)
+        return Task.model_validate(data)
 
     async def update(self, task_id: str, **kwargs: Any) -> Task:
         """Update a task (partial).
@@ -319,7 +341,7 @@ class _AsyncTasksResource(_AsyncBaseResource):
         Requires scope ``entities:write``.
         """
         data = await self._patch(f"/open/v1/tasks/{task_id}", body=kwargs)
-        return Task(**data)
+        return Task.model_validate(data)
 
     async def delete(self, task_id: str) -> None:
         """Delete a task.

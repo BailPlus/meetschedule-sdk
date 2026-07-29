@@ -162,7 +162,7 @@ except NetworkError:
 SDK 使用 Python `dataclass` 表示所有数据模型。返回的数据会自动反序列化为对应的模型实例。
 
 ```python
-from meetschedule_sdk.models import (
+from meetschedule_sdk import (
     Schedule, ScheduleBundle,
     Course, CourseInput, MeetingInput,
     Event, EventInput,
@@ -176,7 +176,7 @@ from meetschedule_sdk.models import (
 
 ```python
 # 方式一：传模型
-from meetschedule_sdk.models import MeetingInput
+from meetschedule_sdk import MeetingInput
 course = client.courses.create(
     schedule_id="sch_xxx",
     name="高等数学（下）",

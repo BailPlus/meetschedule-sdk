@@ -30,7 +30,7 @@ class NetworkError(MeetScheduleError):
 # ── API errors (server responded with an error status) ─────────────────────
 
 
-class ApiException(MeetScheduleError):
+class ApiException(MeetScheduleError):  # noqa: N818
     """Base for all errors returned by the API with an HTTP error status."""
 
     def __init__(

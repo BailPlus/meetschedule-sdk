@@ -1,15 +1,18 @@
-"""Data models for the Meet Schedule Open API.
+"""Pydantic models for the Meet Schedule Open API.
 
-All models are dataclasses that mirror the OpenAPI schemas in api-1.yaml.
+All models are ``pydantic.BaseModel`` subclasses that mirror the OpenAPI
+schemas in api-1.yaml.
+
 Input variants (``*Input``) contain only user-settable fields; full models
 add server-generated fields (``id``, ``updated_at``, etc.).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import IntEnum, StrEnum
-from typing import Any, Literal
+from typing import Any
+
+from pydantic import BaseModel
 
 # ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -66,27 +69,50 @@ class Origin(StrEnum):
 
     IMPORT = "import"  # imported from school教务 system
     USER = "user"  # created by user / API
+    SCHOOL_IMPORT = "school_import"
+
+
+class ReminderAnchor(StrEnum):
+    """Anchor point for reminders."""
+
+    START = "start"
+    END = "end"
+
+
+class WeekStartDay(IntEnum):
+    """First day of the week view."""
+
+    MONDAY = 1
+    SUNDAY = 7
+
+
+class Source(StrEnum):
+    """Data source for schedules and adjustments."""
+
+    MANUAL = "manual"
+    AI = "ai"
+    ADAPTER = "adapter"
+    CLOUD = "cloud"
+    SCHOOL_IMPORT = "school_import"
 
 
 # ── Shared models ──────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class Reminder:
+class Reminder(BaseModel):
     """A reminder rule attached to a course or event."""
 
     offset_minutes: int
     """How many minutes before the anchor point to remind."""
 
-    anchor: Literal["start", "end"] = "start"
+    anchor: ReminderAnchor = ReminderAnchor.START
     """Anchor point: start time or end/due time."""
 
 
 # ── Schedule models ────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class ScheduleInput:
+class ScheduleInput(BaseModel):
     """Fields a user can set when creating or updating a schedule."""
 
     name: str
@@ -101,18 +127,17 @@ class ScheduleInput:
     total_weeks: int = 20
     """Total weeks in the semester (1-520)."""
 
-    week_start_day: Literal[1, 7] = 1
+    week_start_day: WeekStartDay = WeekStartDay.MONDAY
     """First day of the week view: 1=Monday, 7=Sunday."""
 
 
-@dataclass(kw_only=True)
 class Schedule(ScheduleInput):
     """A full schedule object returned by the API."""
 
     id: str
     """Schedule ID (opaque string)."""
 
-    source: Literal["manual", "ai", "adapter"]
+    source: Source | str
     """How the schedule was created."""
 
     sort_order: int
@@ -131,8 +156,7 @@ class Schedule(ScheduleInput):
 # ── Meeting models ─────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class MeetingInput:
+class MeetingInput(BaseModel):
     """A single weekly meeting pattern for a course."""
 
     day_of_week: DayOfWeek | int
@@ -157,7 +181,6 @@ class MeetingInput:
     """Extra notes."""
 
 
-@dataclass(kw_only=True)
 class Meeting(MeetingInput):
     """A meeting pattern as returned by the API."""
 
@@ -171,8 +194,7 @@ class Meeting(MeetingInput):
 # ── Course models ──────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class CourseInput:
+class CourseInput(BaseModel):
     """Fields a user can set when creating or updating a course."""
 
     name: str
@@ -209,7 +231,6 @@ class CourseInput:
     """Reminder rules."""
 
 
-@dataclass(kw_only=True)
 class Course(CourseInput):
     """A full course object returned by the API."""
 
@@ -219,7 +240,7 @@ class Course(CourseInput):
     schedule_id: str
     """ID of the schedule this course belongs to."""
 
-    origin: Origin
+    origin: Origin | str
     """How this course was created."""
 
     external_id: str | None = None
@@ -235,8 +256,7 @@ class Course(CourseInput):
 # ── Event models ───────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class EventInput:
+class EventInput(BaseModel):
     """Fields a user can set when creating or updating an event."""
 
     schedule_id: str
@@ -279,7 +299,6 @@ class EventInput:
     """Reminder rules."""
 
 
-@dataclass(kw_only=True)
 class Event(EventInput):
     """A full event object returned by the API."""
 
@@ -296,8 +315,7 @@ class Event(EventInput):
 # ── Adjustment models ──────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class AdjustmentInput:
+class AdjustmentInput(BaseModel):
     """Fields a user can set when creating an adjustment."""
 
     schedule_id: str
@@ -340,14 +358,13 @@ class AdjustmentInput:
     """Substitute teacher; leave empty if unchanged."""
 
 
-@dataclass(kw_only=True)
 class Adjustment(AdjustmentInput):
     """A full adjustment object returned by the API."""
 
     id: str
     """Adjustment ID (opaque string)."""
 
-    source: Literal["adapter", "ai", "cloud", "manual"]
+    source: Source | str
     """Data source."""
 
     updated_at: str
@@ -357,8 +374,7 @@ class Adjustment(AdjustmentInput):
 # ── Task models ────────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class TaskInput:
+class TaskInput(BaseModel):
     """Fields a user can set when creating or updating a task."""
 
     title: str
@@ -377,7 +393,6 @@ class TaskInput:
     """Sort weight; lower values appear first."""
 
 
-@dataclass(kw_only=True)
 class Task(TaskInput):
     """A full task object returned by the API."""
 
@@ -391,8 +406,7 @@ class Task(TaskInput):
 # ── Bundle models ──────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class ScheduleBundle:
+class ScheduleBundle(BaseModel):
     """Full schedule snapshot: schedule + courses + events + adjustments."""
 
     schedule: Schedule
@@ -411,8 +425,7 @@ class ScheduleBundle:
 # ── Error model ────────────────────────────────────────────────────────────
 
 
-@dataclass(kw_only=True)
-class ApiError:
+class ApiError(BaseModel):
     """Error response body."""
 
     code: str

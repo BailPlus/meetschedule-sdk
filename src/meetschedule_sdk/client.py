@@ -12,19 +12,23 @@ Usage::
     # Create a course
     course = client.courses.create(
         schedule_id="sch_xxx",
-        name="高等数学（下）",
-        meetings=[{
-            "day_of_week": 1,
-            "start_period": 3,
-            "end_period": 4,
-            "weeks": [1, 3, 5, 7, 9, 11, 13, 15],
-        }],
+        input=CourseInput(
+            name="高等数学（下）",
+            meetings=[
+                MeetingInput(
+                    day_of_week=1,
+                    start_period=3,
+                    end_period=4,
+                    weeks=[1, 3, 5, 7, 9, 11, 13, 15],
+                ),
+            ],
+        ),
     )
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 
@@ -78,12 +82,12 @@ def _raise_on_error(response: httpx.Response) -> None:
 
 
 def _to_dict(obj: Any) -> Any:
-    """Recursively convert a dataclass (with enums, etc.) to a JSON-safe dict.
+    """Recursively convert a pydantic model / enum / dict to a JSON-safe dict.
 
     Handles:
-    - dataclasses → dict
-    - dict → recursively converted dict
-    - lists → list of converted items
+    - pydantic ``BaseModel`` → dict (via ``model_dump``)
+    - ``dict`` → recursively converted dict
+    - ``list`` / ``tuple`` → list of converted items
     - ``IntEnum`` / ``StrEnum`` → value
     - ``None`` → ``None``
     - other → passthrough
@@ -94,13 +98,8 @@ def _to_dict(obj: Any) -> Any:
         return obj
     if isinstance(obj, (list, tuple)):
         return [_to_dict(i) for i in obj]
-    if hasattr(obj, "__dataclass_fields__"):
-        result: dict[str, Any] = {}
-        for field_name in obj.__dataclass_fields__:
-            value = getattr(obj, field_name)
-            if value is not None:
-                result[field_name] = _to_dict(value)
-        return result
+    if hasattr(obj, "model_dump"):
+        return _to_dict(obj.model_dump(exclude_none=True))
     if isinstance(obj, dict):
         return {k: _to_dict(v) for k, v in obj.items()}
     return obj
@@ -146,9 +145,7 @@ class _BaseResource:
             return None
         return resp.json()
 
-    def _post(
-        self, path: str, *, body: Any = None
-    ) -> Any:
+    def _post(self, path: str, *, body: Any = None) -> Any:
         """POST and return parsed JSON (expects 201)."""
         resp = self._request("POST", path, json_body=body)
         return resp.json()
@@ -175,7 +172,8 @@ class _SchedulesResource(_BaseResource):
         Requires scope ``schedule:read``.
         """
         data = self._get("/open/v1/schedules")
-        return [Schedule(**item) for item in data]
+        breakpoint()
+        return [Schedule.model_validate(item) for item in data]
 
     def get(self, schedule_id: str) -> Schedule:
         """Get a single schedule by ID.
@@ -183,21 +181,20 @@ class _SchedulesResource(_BaseResource):
         Requires scope ``schedule:read``.
         """
         data = self._get(f"/open/v1/schedules/{schedule_id}")
-        return Schedule(**data)
+        return Schedule.model_validate(data)
 
-    def create(self, **kwargs: Any) -> Schedule:
+    def create(self, input: ScheduleInput) -> Schedule:
         """Create a new schedule.
 
         Requires scope ``schedule:write``.
 
         Parameters
         ----------
-        **kwargs
-            Fields matching :class:`~meetschedule_sdk.models.ScheduleInput`.
+        input:
+            The schedule fields to create.
         """
-        body = ScheduleInput(**kwargs)
-        data = self._post("/open/v1/schedules", body=body)
-        return Schedule(**data)
+        data = self._post("/open/v1/schedules", body=input)
+        return Schedule.model_validate(data)
 
     def update(self, schedule_id: str, **kwargs: Any) -> Schedule:
         """Update a schedule's settings (partial).
@@ -206,7 +203,7 @@ class _SchedulesResource(_BaseResource):
         Only the fields passed are changed; omitted fields keep their values.
         """
         data = self._patch(f"/open/v1/schedules/{schedule_id}", body=kwargs)
-        return Schedule(**data)
+        return Schedule.model_validate(data)
 
     def delete(self, schedule_id: str) -> None:
         """Delete a schedule and all its courses, events, and adjustments.
@@ -222,10 +219,10 @@ class _SchedulesResource(_BaseResource):
         """
         data = self._get(f"/open/v1/schedules/{schedule_id}/full")
         return ScheduleBundle(
-            schedule=Schedule(**data["schedule"]),
-            courses=[Course(**c) for c in data["courses"]],
-            events=[Event(**e) for e in data["events"]],
-            adjustments=[Adjustment(**a) for a in data["adjustments"]],
+            schedule=Schedule.model_validate(data["schedule"]),
+            courses=[Course.model_validate(c) for c in data["courses"]],
+            events=[Event.model_validate(e) for e in data["events"]],
+            adjustments=[Adjustment.model_validate(a) for a in data["adjustments"]],
         )
 
     # ── Nested resources ────────────────────────────────────────────────
@@ -250,7 +247,8 @@ class _SchedulesResource(_BaseResource):
 
 
 class _CoursesResource(_BaseResource):
-    """``/open/v1/schedules/{scheduleId}/courses`` and ``/open/v1/courses/{courseId}`` endpoints."""
+    """``/open/v1/schedules/{scheduleId}/courses``
+    and ``/open/v1/courses/{courseId}`` endpoints."""
 
     def get_all(self, schedule_id: str) -> list[Course]:
         """Get all courses (with their meetings) in a schedule.
@@ -258,9 +256,9 @@ class _CoursesResource(_BaseResource):
         Requires scope ``entities:read``.
         """
         data = self._get(f"/open/v1/schedules/{schedule_id}/courses")
-        return [Course(**item) for item in data]
+        return [Course.model_validate(item) for item in data]
 
-    def create(self, schedule_id: str, **kwargs: Any) -> Course:
+    def create(self, schedule_id: str, input: CourseInput) -> Course:
         """Create a new course in a schedule.
 
         Requires scope ``entities:write``.
@@ -269,16 +267,14 @@ class _CoursesResource(_BaseResource):
         ----------
         schedule_id:
             The schedule to add the course to.
-        **kwargs:
-            Fields matching :class:`~meetschedule_sdk.models.CourseInput`.
-            ``name`` and ``meetings`` are required.
+        input:
+            The course fields to create.
         """
-        body = CourseInput(**kwargs)
         data = self._post(
             f"/open/v1/schedules/{schedule_id}/courses",
-            body=body,
+            body=input,
         )
-        return Course(**data)
+        return Course.model_validate(data)
 
     def update(self, course_id: str, **kwargs: Any) -> Course:
         """Update a course (partial).
@@ -286,7 +282,7 @@ class _CoursesResource(_BaseResource):
         Requires scope ``entities:write``.
         """
         data = self._patch(f"/open/v1/courses/{course_id}", body=kwargs)
-        return Course(**data)
+        return Course.model_validate(data)
 
     def delete(self, course_id: str) -> None:
         """Delete a course.
@@ -300,13 +296,14 @@ class _CoursesResource(_BaseResource):
 
 
 class _EventsResource(_BaseResource):
-    """``/open/v1/schedules/{scheduleId}/events`` and ``/open/v1/events/{eventId}`` endpoints."""
+    """``/open/v1/schedules/{scheduleId}/events``
+    and ``/open/v1/events/{eventId}`` endpoints."""
 
     def get_all(
         self,
         schedule_id: str,
         *,
-        type: str | None = None,  # noqa: A002
+        type: str | None = None,
         from_time: str | None = None,
         to: str | None = None,
     ) -> list[Event]:
@@ -339,26 +336,23 @@ class _EventsResource(_BaseResource):
             f"/open/v1/schedules/{schedule_id}/events",
             params=params,
         )
-        return [Event(**item) for item in data]
+        return [Event.model_validate(item) for item in data]
 
-    def create(self, schedule_id: str, **kwargs: Any) -> Event:
+    def create(self, input: EventInput) -> Event:
         """Create a new event in a schedule.
 
         Requires scope ``entities:write``.
 
         Parameters
         ----------
-        schedule_id:
-            The schedule to add the event to.
-        **kwargs:
-            Fields matching :class:`~meetschedule_sdk.models.EventInput`.
+        input:
+            The event fields to create. Must include ``schedule_id``.
         """
-        body = EventInput(schedule_id=schedule_id, **kwargs)
         data = self._post(
-            f"/open/v1/schedules/{schedule_id}/events",
-            body=body,
+            f"/open/v1/schedules/{input.schedule_id}/events",
+            body=input,
         )
-        return Event(**data)
+        return Event.model_validate(data)
 
     def update(self, event_id: str, **kwargs: Any) -> Event:
         """Update an event (partial).
@@ -366,7 +360,7 @@ class _EventsResource(_BaseResource):
         Requires scope ``entities:write``.
         """
         data = self._patch(f"/open/v1/events/{event_id}", body=kwargs)
-        return Event(**data)
+        return Event.model_validate(data)
 
     def delete(self, event_id: str) -> None:
         """Delete an event.
@@ -380,7 +374,8 @@ class _EventsResource(_BaseResource):
 
 
 class _AdjustmentsResource(_BaseResource):
-    """``/open/v1/schedules/{scheduleId}/adjustments`` and ``/open/v1/adjustments/{adjustmentId}`` endpoints."""
+    """``/open/v1/schedules/{scheduleId}/adjustments``
+    and ``/open/v1/adjustments/{adjustmentId}`` endpoints."""
 
     def get_all(self, schedule_id: str) -> list[Adjustment]:
         """Get all adjustments in a schedule.
@@ -388,26 +383,23 @@ class _AdjustmentsResource(_BaseResource):
         Requires scope ``entities:read``.
         """
         data = self._get(f"/open/v1/schedules/{schedule_id}/adjustments")
-        return [Adjustment(**item) for item in data]
+        return [Adjustment.model_validate(item) for item in data]
 
-    def create(self, schedule_id: str, **kwargs: Any) -> Adjustment:
+    def create(self, input: AdjustmentInput) -> Adjustment:
         """Create a new adjustment (cancel / makeup / reschedule).
 
         Requires scope ``entities:write``.
 
         Parameters
         ----------
-        schedule_id:
-            The schedule to add the adjustment to.
-        **kwargs:
-            Fields matching :class:`~meetschedule_sdk.models.AdjustmentInput`.
+        input:
+            The adjustment fields to create. Must include ``schedule_id``.
         """
-        body = AdjustmentInput(schedule_id=schedule_id, **kwargs)
         data = self._post(
-            f"/open/v1/schedules/{schedule_id}/adjustments",
-            body=body,
+            f"/open/v1/schedules/{input.schedule_id}/adjustments",
+            body=input,
         )
-        return Adjustment(**data)
+        return Adjustment.model_validate(data)
 
     def delete(self, adjustment_id: str) -> None:
         """Delete an adjustment.
@@ -431,22 +423,20 @@ class _TasksResource(_BaseResource):
         Tasks are not scoped to a schedule.
         """
         data = self._get("/open/v1/tasks")
-        return [Task(**item) for item in data]
+        return [Task.model_validate(item) for item in data]
 
-    def create(self, **kwargs: Any) -> Task:
+    def create(self, input: TaskInput) -> Task:
         """Create a new task.
 
         Requires scope ``entities:write``.
 
         Parameters
         ----------
-        **kwargs:
-            Fields matching :class:`~meetschedule_sdk.models.TaskInput`.
-            ``title`` is required.
+        input:
+            The task fields to create.
         """
-        body = TaskInput(**kwargs)
-        data = self._post("/open/v1/tasks", body=body)
-        return Task(**data)
+        data = self._post("/open/v1/tasks", body=input)
+        return Task.model_validate(data)
 
     def update(self, task_id: str, **kwargs: Any) -> Task:
         """Update a task (partial).
@@ -454,7 +444,7 @@ class _TasksResource(_BaseResource):
         Requires scope ``entities:write``.
         """
         data = self._patch(f"/open/v1/tasks/{task_id}", body=kwargs)
-        return Task(**data)
+        return Task.model_validate(data)
 
     def delete(self, task_id: str) -> None:
         """Delete a task.
