@@ -23,13 +23,17 @@ from meetschedule_sdk.models import (
     AdjustmentInput,
     Course,
     CourseInput,
+    CoursePatch,
     Event,
     EventInput,
+    EventPatch,
     Schedule,
     ScheduleBundle,
     ScheduleInput,
+    ScheduleUpdate,
     Task,
     TaskInput,
+    TaskPatch,
 )
 
 # ── Base async resource ─────────────────────────────────────────────────────
@@ -70,8 +74,8 @@ class _AsyncBaseResource:
             return None
         return resp.json()
 
-    async def _post(self, path: str, *, body: Any = None) -> Any:
-        resp = await self._request("POST", path, json_body=body)
+    async def _post(self, path: str, *, body: Any = None, params: dict[str, str] | None = None) -> Any:
+        resp = await self._request("POST", path, params=params, json_body=body)
         return resp.json()
 
     async def _patch(self, path: str, *, body: Any = None) -> Any:
@@ -117,12 +121,21 @@ class _AsyncSchedulesResource(_AsyncBaseResource):
         data = await self._post("/open/v1/schedules", body=input)
         return Schedule.model_validate(data)
 
-    async def update(self, schedule_id: str, **kwargs: Any) -> Schedule:
+    async def update(self, schedule_id: str, input: ScheduleUpdate) -> Schedule:
         """Update a schedule (partial).
 
         Requires scope ``schedule:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        schedule_id:
+            The schedule to update.
+        input:
+            The fields to update (all optional).
         """
-        data = await self._patch(f"/open/v1/schedules/{schedule_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = await self._patch(f"/open/v1/schedules/{schedule_id}", body=body)
         return Schedule.model_validate(data)
 
     async def delete(self, schedule_id: str) -> None:
@@ -190,12 +203,22 @@ class _AsyncCoursesResource(_AsyncBaseResource):
         )
         return Course.model_validate(data)
 
-    async def update(self, course_id: str, **kwargs: Any) -> Course:
+    async def update(self, course_id: str, input: CoursePatch) -> Course:
         """Update a course (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+        ``meetings`` is special: when set, it replaces all existing meetings.
+
+        Parameters
+        ----------
+        course_id:
+            The course to update.
+        input:
+            The fields to update (all optional).
         """
-        data = await self._patch(f"/open/v1/courses/{course_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = await self._patch(f"/open/v1/courses/{course_id}", body=body)
         return Course.model_validate(data)
 
     async def delete(self, course_id: str) -> None:
@@ -238,28 +261,50 @@ class _AsyncEventsResource(_AsyncBaseResource):
         )
         return [Event.model_validate(item) for item in data]
 
-    async def create(self, input: EventInput) -> Event:
+    async def create(
+        self,
+        input: EventInput,
+        *,
+        allow_duplicate_title: bool = False,
+    ) -> Event:
         """Create a new event.
 
         Requires scope ``entities:write``.
+
+        By default, events with the same title as an existing non-deleted
+        event in the same schedule will be rejected (409). Pass
+        ``allow_duplicate_title=True`` to skip this check.
 
         Parameters
         ----------
         input:
             The event fields to create. Must include ``schedule_id``.
+        allow_duplicate_title:
+            Allow creating an event with a title that already exists
+            in the schedule.
         """
         data = await self._post(
             f"/open/v1/schedules/{input.schedule_id}/events",
             body=input,
+            params={"allow_duplicate_title": "true"} if allow_duplicate_title else None,
         )
         return Event.model_validate(data)
 
-    async def update(self, event_id: str, **kwargs: Any) -> Event:
+    async def update(self, event_id: str, input: EventPatch) -> Event:
         """Update an event (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        event_id:
+            The event to update.
+        input:
+            The fields to update (all optional).
         """
-        data = await self._patch(f"/open/v1/events/{event_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = await self._patch(f"/open/v1/events/{event_id}", body=body)
         return Event.model_validate(data)
 
     async def delete(self, event_id: str) -> None:
@@ -335,12 +380,21 @@ class _AsyncTasksResource(_AsyncBaseResource):
         data = await self._post("/open/v1/tasks", body=input)
         return Task.model_validate(data)
 
-    async def update(self, task_id: str, **kwargs: Any) -> Task:
+    async def update(self, task_id: str, input: TaskPatch) -> Task:
         """Update a task (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        task_id:
+            The task to update.
+        input:
+            The fields to update (all optional).
         """
-        data = await self._patch(f"/open/v1/tasks/{task_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = await self._patch(f"/open/v1/tasks/{task_id}", body=body)
         return Task.model_validate(data)
 
     async def delete(self, task_id: str) -> None:

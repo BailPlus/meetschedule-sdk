@@ -43,13 +43,18 @@ from meetschedule_sdk.models import (
     ApiError,
     Course,
     CourseInput,
+    CoursePatch,
     Event,
     EventInput,
+    EventPatch,
+    MeetingInput,
     Schedule,
     ScheduleBundle,
     ScheduleInput,
+    ScheduleUpdate,
     Task,
     TaskInput,
+    TaskPatch,
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,9 +150,9 @@ class _BaseResource:
             return None
         return resp.json()
 
-    def _post(self, path: str, *, body: Any = None) -> Any:
+    def _post(self, path: str, *, body: Any = None, params: dict[str, str] | None = None) -> Any:
         """POST and return parsed JSON (expects 201)."""
-        resp = self._request("POST", path, json_body=body)
+        resp = self._request("POST", path, params=params, json_body=body)
         return resp.json()
 
     def _patch(self, path: str, *, body: Any = None) -> Any:
@@ -172,7 +177,6 @@ class _SchedulesResource(_BaseResource):
         Requires scope ``schedule:read``.
         """
         data = self._get("/open/v1/schedules")
-        breakpoint()
         return [Schedule.model_validate(item) for item in data]
 
     def get(self, schedule_id: str) -> Schedule:
@@ -196,13 +200,21 @@ class _SchedulesResource(_BaseResource):
         data = self._post("/open/v1/schedules", body=input)
         return Schedule.model_validate(data)
 
-    def update(self, schedule_id: str, **kwargs: Any) -> Schedule:
+    def update(self, schedule_id: str, input: ScheduleUpdate) -> Schedule:
         """Update a schedule's settings (partial).
 
         Requires scope ``schedule:write``.
         Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        schedule_id:
+            The schedule to update.
+        input:
+            The fields to update (all optional).
         """
-        data = self._patch(f"/open/v1/schedules/{schedule_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = self._patch(f"/open/v1/schedules/{schedule_id}", body=body)
         return Schedule.model_validate(data)
 
     def delete(self, schedule_id: str) -> None:
@@ -276,12 +288,22 @@ class _CoursesResource(_BaseResource):
         )
         return Course.model_validate(data)
 
-    def update(self, course_id: str, **kwargs: Any) -> Course:
+    def update(self, course_id: str, input: CoursePatch) -> Course:
         """Update a course (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+        ``meetings`` is special: when set, it replaces all existing meetings.
+
+        Parameters
+        ----------
+        course_id:
+            The course to update.
+        input:
+            The fields to update (all optional).
         """
-        data = self._patch(f"/open/v1/courses/{course_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = self._patch(f"/open/v1/courses/{course_id}", body=body)
         return Course.model_validate(data)
 
     def delete(self, course_id: str) -> None:
@@ -338,28 +360,50 @@ class _EventsResource(_BaseResource):
         )
         return [Event.model_validate(item) for item in data]
 
-    def create(self, input: EventInput) -> Event:
+    def create(
+        self,
+        input: EventInput,
+        *,
+        allow_duplicate_title: bool = False,
+    ) -> Event:
         """Create a new event in a schedule.
 
         Requires scope ``entities:write``.
+
+        By default, events with the same title as an existing non-deleted
+        event in the same schedule will be rejected (409). Pass
+        ``allow_duplicate_title=True`` to skip this check.
 
         Parameters
         ----------
         input:
             The event fields to create. Must include ``schedule_id``.
+        allow_duplicate_title:
+            Allow creating an event with a title that already exists
+            in the schedule.
         """
         data = self._post(
             f"/open/v1/schedules/{input.schedule_id}/events",
             body=input,
+            params={"allow_duplicate_title": "true"} if allow_duplicate_title else None,
         )
         return Event.model_validate(data)
 
-    def update(self, event_id: str, **kwargs: Any) -> Event:
+    def update(self, event_id: str, input: EventPatch) -> Event:
         """Update an event (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        event_id:
+            The event to update.
+        input:
+            The fields to update (all optional).
         """
-        data = self._patch(f"/open/v1/events/{event_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = self._patch(f"/open/v1/events/{event_id}", body=body)
         return Event.model_validate(data)
 
     def delete(self, event_id: str) -> None:
@@ -438,12 +482,21 @@ class _TasksResource(_BaseResource):
         data = self._post("/open/v1/tasks", body=input)
         return Task.model_validate(data)
 
-    def update(self, task_id: str, **kwargs: Any) -> Task:
+    def update(self, task_id: str, input: TaskPatch) -> Task:
         """Update a task (partial).
 
         Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        task_id:
+            The task to update.
+        input:
+            The fields to update (all optional).
         """
-        data = self._patch(f"/open/v1/tasks/{task_id}", body=kwargs)
+        body = input.model_dump(exclude_unset=True)
+        data = self._patch(f"/open/v1/tasks/{task_id}", body=body)
         return Task.model_validate(data)
 
     def delete(self, task_id: str) -> None:

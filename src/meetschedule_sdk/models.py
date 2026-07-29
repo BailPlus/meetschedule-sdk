@@ -69,14 +69,13 @@ class Origin(StrEnum):
 
     IMPORT = "import"  # imported from school教务 system
     USER = "user"  # created by user / API
-    SCHOOL_IMPORT = "school_import"
 
 
 class ReminderAnchor(StrEnum):
     """Anchor point for reminders."""
 
-    START = "start"
-    END = "end"
+    START = "START"
+    END = "END"
 
 
 class WeekStartDay(IntEnum):
@@ -128,6 +127,29 @@ class ScheduleInput(BaseModel):
     """Total weeks in the semester (1-520)."""
 
     week_start_day: WeekStartDay = WeekStartDay.MONDAY
+    """First day of the week view: 1=Monday, 7=Sunday."""
+
+
+class ScheduleUpdate(BaseModel):
+    """Fields a user can set when updating a schedule (PATCH).
+
+    All fields are optional; only explicitly set fields are sent to the API.
+    Unset fields keep their current server-side values.
+    """
+
+    name: str | None = None
+    """Schedule name, e.g. '2025 Fall Semester'."""
+
+    start_date: str | None = None
+    """ISO date of the Monday of week 1, e.g. '2025-09-01'."""
+
+    term: str | None = None
+    """Raw term string, display-only, e.g. '2025-2026学年1学期'."""
+
+    total_weeks: int | None = None
+    """Total weeks in the semester (1-520)."""
+
+    week_start_day: WeekStartDay | None = None
     """First day of the week view: 1=Monday, 7=Sunday."""
 
 
@@ -231,6 +253,48 @@ class CourseInput(BaseModel):
     """Reminder rules."""
 
 
+class CoursePatch(BaseModel):
+    """Fields a user can set when updating a course (PATCH).
+
+    All fields are optional; only explicitly set fields are sent to the API.
+    Unset fields keep their current server-side values.
+    ``meetings`` is special: if set, it **replaces** all existing meetings.
+    """
+
+    name: str | None = None
+    """Course name, e.g. '高等数学（下）'."""
+
+    meetings: list[MeetingInput] | None = None
+    """Weekly meeting patterns; replaced entirely when set."""
+
+    course_code: str | None = None
+    """教务 course code, e.g. 'A2150341'."""
+
+    class_code: str | None = None
+    """教务 class code, e.g. 'A15252A2150341002'."""
+
+    credits: float | None = None
+    """Credit hours."""
+
+    category: Category | None = None
+    """Normalised course category."""
+
+    category_raw: str | None = None
+    """Raw category text from 教务 system."""
+
+    display_teacher: str | None = None
+    """Display teacher name (summary for list views)."""
+
+    color_hue: float | None = None
+    """Fixed hue value (0-360) for the course colour block."""
+
+    note: str | None = None
+    """Plain-text note."""
+
+    reminders: list[Reminder] | None = None
+    """Reminder rules."""
+
+
 class Course(CourseInput):
     """A full course object returned by the API."""
 
@@ -297,6 +361,56 @@ class EventInput(BaseModel):
 
     reminders: list[Reminder] | None = None
     """Reminder rules."""
+
+
+class EventPatch(BaseModel):
+    """Fields a user can set when updating an event (PATCH).
+
+    All fields are optional; only explicitly set fields are sent to the API.
+    Unset fields keep their current server-side values.
+    """
+
+    schedule_id: str | None = None
+    """ID of the schedule this event belongs to; moves the event if changed."""
+
+    type: EventType | str | None = None
+    """Event type."""
+
+    title: str | None = None
+    """Event title."""
+
+    time_mode: TimeMode | str | None = None
+    """How the event expresses its time."""
+
+    start_at: str | None = None
+    """Start time (ISO 8601)."""
+
+    end_at: str | None = None
+    """End / due time (ISO 8601)."""
+
+    all_day_date: str | None = None
+    """Date for all-day events (ISO date)."""
+
+    linked_course_id: str | None = None
+    """Optional linked course ID."""
+
+    timeslot_group_id: str | None = None
+    """Optional timeslot group ID for grid rendering."""
+
+    location: str | None = None
+    """Location."""
+
+    color_hue: float | None = None
+    """Fixed hue value (0-360) for the colour block."""
+
+    note: str | None = None
+    """Plain-text note."""
+
+    reminders: list[Reminder] | None = None
+    """Reminder rules."""
+
+    done: bool | None = None
+    """Completion status (events can be marked done too)."""
 
 
 class Event(EventInput):
@@ -385,6 +499,29 @@ class TaskInput(BaseModel):
 
     done: bool = False
     """Completion status."""
+
+    due_at: str | None = None
+    """Due time (ISO 8601); no due date if None."""
+
+    sort_order: int | None = None
+    """Sort weight; lower values appear first."""
+
+
+class TaskPatch(BaseModel):
+    """Fields a user can set when updating a task (PATCH).
+
+    All fields are optional; only explicitly set fields are sent to the API.
+    Unset fields keep their current server-side values.
+    """
+
+    group: str | None = None
+    """Group name, e.g. '毕业设计', '生活'; pass empty string to clear."""
+
+    title: str | None = None
+    """Task title."""
+
+    done: bool | None = None
+    """Completion status; unset keeps the current value."""
 
     due_at: str | None = None
     """Due time (ISO 8601); no due date if None."""
