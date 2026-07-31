@@ -12,7 +12,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -74,7 +74,9 @@ class _AsyncBaseResource:
             return None
         return resp.json()
 
-    async def _post(self, path: str, *, body: Any = None, params: dict[str, str] | None = None) -> Any:
+    async def _post(
+        self, path: str, *, body: Any = None, params: dict[str, str] | None = None
+    ) -> Any:
         resp = await self._request("POST", path, params=params, json_body=body)
         return resp.json()
 
@@ -239,7 +241,7 @@ class _AsyncEventsResource(_AsyncBaseResource):
         self,
         schedule_id: str,
         *,
-        type: str | None = None,  # noqa: A002
+        type: str | None = None,
         from_time: str | None = None,
         to: str | None = None,
     ) -> list[Event]:
@@ -465,7 +467,7 @@ class AsyncMeetSchedule:
         """Close the underlying async HTTP client (releases connections)."""
         await self._client.aclose()
 
-    async def __aenter__(self) -> AsyncMeetSchedule:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: object) -> None:

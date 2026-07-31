@@ -10,9 +10,9 @@ add server-generated fields (``id``, ``updated_at``, etc.).
 from __future__ import annotations
 
 from enum import IntEnum, StrEnum
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ── Enums ──────────────────────────────────────────────────────────────────
 
@@ -91,8 +91,8 @@ class Source(StrEnum):
     MANUAL = "manual"
     AI = "ai"
     ADAPTER = "adapter"
-    CLOUD = "cloud"
-    SCHOOL_IMPORT = "school_import"
+    CLOUD = "cloud"  # Adjustment的source特有
+    SCHOOL_IMPORT = "school_import"  # Schedule的source特有
 
 
 # ── Shared models ──────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ class ScheduleInput(BaseModel):
     term: str | None = None
     """Raw term string, display-only, e.g. '2025-2026学年1学期'."""
 
-    total_weeks: int = 20
+    total_weeks: int = Field(20, ge=1, le=520)
     """Total weeks in the semester (1-520)."""
 
     week_start_day: WeekStartDay = WeekStartDay.MONDAY
@@ -159,7 +159,7 @@ class Schedule(ScheduleInput):
     id: str
     """Schedule ID (opaque string)."""
 
-    source: Source | str
+    source: Source
     """How the schedule was created."""
 
     sort_order: int
@@ -181,7 +181,7 @@ class Schedule(ScheduleInput):
 class MeetingInput(BaseModel):
     """A single weekly meeting pattern for a course."""
 
-    day_of_week: DayOfWeek | int
+    day_of_week: DayOfWeek
     """Day of week (1=Monday … 7=Sunday)."""
 
     start_period: int
@@ -190,7 +190,7 @@ class MeetingInput(BaseModel):
     end_period: int
     """Ending period number (inclusive)."""
 
-    weeks: list[int]
+    weeks: list[Annotated[int, Field(ge=1, le=63)]]
     """List of weeks this meeting occurs (1-based)."""
 
     location: str | None = None
@@ -304,7 +304,7 @@ class Course(CourseInput):
     schedule_id: str
     """ID of the schedule this course belongs to."""
 
-    origin: Origin | str
+    origin: Origin
     """How this course was created."""
 
     external_id: str | None = None
@@ -326,13 +326,13 @@ class EventInput(BaseModel):
     schedule_id: str
     """ID of the schedule this event belongs to."""
 
-    type: EventType | str
+    type: EventType
     """Event type."""
 
     title: str
     """Event title."""
 
-    time_mode: TimeMode | str
+    time_mode: TimeMode
     """How the event expresses its time."""
 
     start_at: str | None = None
@@ -373,13 +373,13 @@ class EventPatch(BaseModel):
     schedule_id: str | None = None
     """ID of the schedule this event belongs to; moves the event if changed."""
 
-    type: EventType | str | None = None
+    type: EventType | None = None
     """Event type."""
 
     title: str | None = None
     """Event title."""
 
-    time_mode: TimeMode | str | None = None
+    time_mode: TimeMode | None = None
     """How the event expresses its time."""
 
     start_at: str | None = None
@@ -435,7 +435,7 @@ class AdjustmentInput(BaseModel):
     schedule_id: str
     """ID of the schedule this adjustment belongs to."""
 
-    type: AdjustmentType | str
+    type: AdjustmentType
     """Adjustment type: cancel, makeup, or reschedule."""
 
     course_id: str | None = None
@@ -444,7 +444,7 @@ class AdjustmentInput(BaseModel):
     origin_week: int | None = None
     """Original week (required for cancel / reschedule)."""
 
-    origin_day: DayOfWeek | int | None = None
+    origin_day: DayOfWeek | None = None
     """Original day of week."""
 
     origin_start_period: int | None = None
@@ -456,7 +456,7 @@ class AdjustmentInput(BaseModel):
     target_week: int | None = None
     """Target week (required for makeup / reschedule)."""
 
-    target_day: DayOfWeek | int | None = None
+    target_day: DayOfWeek | None = None
     """Target day of week."""
 
     target_start_period: int | None = None
@@ -478,7 +478,7 @@ class Adjustment(AdjustmentInput):
     id: str
     """Adjustment ID (opaque string)."""
 
-    source: Source | str
+    source: Source
     """Data source."""
 
     updated_at: str

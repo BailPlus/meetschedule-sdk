@@ -28,7 +28,7 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 import httpx
 
@@ -47,7 +47,6 @@ from meetschedule_sdk.models import (
     Event,
     EventInput,
     EventPatch,
-    MeetingInput,
     Schedule,
     ScheduleBundle,
     ScheduleInput,
@@ -150,7 +149,9 @@ class _BaseResource:
             return None
         return resp.json()
 
-    def _post(self, path: str, *, body: Any = None, params: dict[str, str] | None = None) -> Any:
+    def _post(
+        self, path: str, *, body: Any = None, params: dict[str, str] | None = None
+    ) -> Any:
         """POST and return parsed JSON (expects 201)."""
         resp = self._request("POST", path, params=params, json_body=body)
         return resp.json()
@@ -566,7 +567,7 @@ class MeetSchedule:
         """Close the underlying HTTP client (releases connections)."""
         self._client.close()
 
-    def __enter__(self) -> MeetSchedule:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: object) -> None:

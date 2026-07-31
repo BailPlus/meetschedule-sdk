@@ -161,7 +161,7 @@ except NetworkError:
 
 ## 数据模型
 
-SDK 使用 Python `dataclass` 表示所有数据模型。返回的数据会自动反序列化为对应的模型实例。
+SDK 使用 pydantic `BaseModel` 表示所有数据模型。返回的数据会自动反序列化为对应的模型实例。
 
 ```python
 from meetschedule_sdk import (
