@@ -88,6 +88,7 @@ asyncio.run(main())
 |---|---|
 | `client.schedules.get_all()` | 列出所有课表 |
 | `client.schedules.get(schedule_id)` | 获取单个课表信息 |
+| `client.schedules.get_current()` | 获取当前正在使用的课表 |
 | `client.schedules.create(ScheduleInput(...))` | 新建课表 |
 | `client.schedules.update(schedule_id, ScheduleUpdate(...))` | 更新课表设置 |
 | `client.schedules.delete(schedule_id)` | 删除课表（不可恢复） |
@@ -106,7 +107,9 @@ asyncio.run(main())
 
 | 方法 | 说明 |
 |---|---|
-| `client.events.get_all(schedule_id, type=..., from_time=..., to=...)` | 列出事件 |
+| `client.events.get_all(schedule_id, type=..., from_time=..., to=..., done=...)` | 列出事件 |
+| `client.events.get(event_id)` | 获取单个事件 |
+| `client.events.get_by_ids([...])` | 按 id 批量获取事件 |
 | `client.events.create(EventInput(...), allow_duplicate_title=...)` | 新建事件 |
 | `client.events.update(event_id, EventPatch(...))` | 更新事件 |
 | `client.events.delete(event_id)` | 删除事件 |
@@ -124,6 +127,7 @@ asyncio.run(main())
 | 方法 | 说明 |
 |---|---|
 | `client.tasks.get_all()` | 列出所有待办 |
+| `client.tasks.get(task_id)` | 获取单个待办 |
 | `client.tasks.create(TaskInput(...))` | 新建待办 |
 | `client.tasks.update(task_id, TaskPatch(...))` | 更新待办 |
 | `client.tasks.delete(task_id)` | 删除待办 |

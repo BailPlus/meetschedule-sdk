@@ -188,6 +188,19 @@ class _SchedulesResource(_BaseResource):
         data = self._get(f"/open/v1/schedules/{schedule_id}")
         return Schedule.model_validate(data)
 
+    def get_current(self) -> Schedule:
+        """Get the schedule currently in use (the one shown on open).
+
+        Requires scope ``schedule:read``.
+
+        Raises
+        ------
+        NotFoundError:
+            If the account has no schedules yet.
+        """
+        data = self._get("/open/v1/schedules/current")
+        return Schedule.model_validate(data)
+
     def create(self, input: ScheduleInput) -> Schedule:
         """Create a new schedule.
 
@@ -329,6 +342,7 @@ class _EventsResource(_BaseResource):
         type: str | None = None,
         from_time: str | None = None,
         to: str | None = None,
+        done: bool | None = None,
     ) -> list[Event]:
         """Get events in a schedule, with optional filters.
 
@@ -346,6 +360,9 @@ class _EventsResource(_BaseResource):
         to:
             Optional. Only return events whose time range ends at or before
             this ISO 8601 timestamp.
+        done:
+            Optional. Filter by completion status: ``True`` only returns
+            completed events, ``False`` only uncompleted ones.
         """
         params: dict[str, str] = {}
         if type is not None:
@@ -354,11 +371,35 @@ class _EventsResource(_BaseResource):
             params["from"] = from_time
         if to is not None:
             params["to"] = to
+        if done is not None:
+            params["done"] = "true" if done else "false"
 
         data = self._get(
             f"/open/v1/schedules/{schedule_id}/events",
             params=params,
         )
+        return [Event.model_validate(item) for item in data]
+
+    def get(self, event_id: str) -> Event:
+        """Get a single event by ID.
+
+        Requires scope ``entities:read``.
+        """
+        data = self._get(f"/open/v1/events/{event_id}")
+        return Event.model_validate(data)
+
+    def get_by_ids(self, ids: list[str]) -> list[Event]:
+        """Batch-fetch events by their IDs.
+
+        Requires scope ``entities:read``.
+
+        Parameters
+        ----------
+        ids:
+            The event IDs to fetch. The request repeats the ``ids`` query
+            parameter once per ID (``?ids=a&ids=b``).
+        """
+        data = self._get("/open/v1/events", params={"ids": ids})
         return [Event.model_validate(item) for item in data]
 
     def create(
@@ -469,6 +510,14 @@ class _TasksResource(_BaseResource):
         """
         data = self._get("/open/v1/tasks")
         return [Task.model_validate(item) for item in data]
+
+    def get(self, task_id: str) -> Task:
+        """Get a single task by ID.
+
+        Requires scope ``entities:read``.
+        """
+        data = self._get(f"/open/v1/tasks/{task_id}")
+        return Task.model_validate(data)
 
     def create(self, input: TaskInput) -> Task:
         """Create a new task.

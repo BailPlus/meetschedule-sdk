@@ -101,7 +101,7 @@ class Source(StrEnum):
 class Reminder(BaseModel):
     """A reminder rule attached to a course or event."""
 
-    offset_minutes: int
+    offset_minutes: int = Field(ge=0)
     """How many minutes before the anchor point to remind."""
 
     anchor: ReminderAnchor = ReminderAnchor.START
@@ -165,6 +165,10 @@ class Schedule(ScheduleInput):
     sort_order: int
     """Sort weight; lower values appear first in lists."""
 
+    is_current: bool
+    """Whether this is the schedule currently in use (the one with the
+    smallest ``sort_order``)."""
+
     course_count: int
     """Number of courses (excluding deleted)."""
 
@@ -184,10 +188,10 @@ class MeetingInput(BaseModel):
     day_of_week: DayOfWeek
     """Day of week (1=Monday … 7=Sunday)."""
 
-    start_period: int
+    start_period: int = Field(ge=1)
     """Starting period number (1-based)."""
 
-    end_period: int
+    end_period: int = Field(ge=1)
     """Ending period number (inclusive)."""
 
     weeks: list[Annotated[int, Field(ge=1, le=63)]]
@@ -361,6 +365,9 @@ class EventInput(BaseModel):
 
     reminders: list[Reminder] | None = None
     """Reminder rules."""
+
+    done: bool = False
+    """Completion status (events can be marked done too)."""
 
 
 class EventPatch(BaseModel):
