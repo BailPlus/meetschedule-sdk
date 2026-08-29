@@ -590,16 +590,16 @@ class MeetSchedule:
         self,
         api_key: str,
         base_url: str = "https://api.meetschedule.top",
-        timeout: float = 30.0,
+        client: httpx.Client | None = None,
     ) -> None:
         if not api_key:
             raise ConfigurationError("api_key must not be empty")
 
-        self._client = httpx.Client(
-            base_url=base_url,
-            headers={"X-API-Key": api_key},
-            timeout=httpx.Timeout(timeout),
-        )
+        if client is None:
+            client = httpx.Client()
+        client.base_url = base_url
+        client.headers["X-API-Key"] = api_key
+        self._client = client
 
         self.schedules = _SchedulesResource(self._client)
         """Access schedule endpoints."""

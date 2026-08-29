@@ -503,16 +503,16 @@ class AsyncMeetSchedule:
         self,
         api_key: str,
         base_url: str = "https://api.meetschedule.top",
-        timeout: float = 30.0,
+        client: httpx.AsyncClient | None = None,
     ) -> None:
         if not api_key:
             raise ConfigurationError("api_key must not be empty")
 
-        self._client = httpx.AsyncClient(
-            base_url=base_url,
-            headers={"X-API-Key": api_key},
-            timeout=httpx.Timeout(timeout),
-        )
+        if client is None:
+            client = httpx.AsyncClient()
+        client.base_url = base_url
+        client.headers = {"X-API-Key": api_key}
+        self._client = client
 
         self.schedules = _AsyncSchedulesResource(self._client)
         """Access schedule endpoints."""
