@@ -40,11 +40,15 @@ from meetschedule_sdk.exceptions import (
 from meetschedule_sdk.models import (
     Adjustment,
     AdjustmentInput,
+    AdjustmentPatch,
     ApiError,
     Course,
     CourseInput,
     CoursePatch,
     Event,
+    EventBatchCreateRequest,
+    EventBatchDeleteRequest,
+    EventBatchDeleteResponse,
     EventInput,
     EventPatch,
     Schedule,
@@ -54,6 +58,7 @@ from meetschedule_sdk.models import (
     Task,
     TaskInput,
     TaskPatch,
+    TimeSlotGroup,
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -239,7 +244,8 @@ class _SchedulesResource(_BaseResource):
         self._delete(f"/open/v1/schedules/{schedule_id}")
 
     def get_full(self, schedule_id: str) -> ScheduleBundle:
-        """Get a full schedule snapshot — schedule + courses + events + adjustments.
+        """Get a full schedule snapshot — schedule + courses + events
+        + adjustments + the account's timeslot groups.
 
         Requires scope ``schedule:read``.
         """
@@ -249,6 +255,9 @@ class _SchedulesResource(_BaseResource):
             courses=[Course.model_validate(c) for c in data["courses"]],
             events=[Event.model_validate(e) for e in data["events"]],
             adjustments=[Adjustment.model_validate(a) for a in data["adjustments"]],
+            timeslot_groups=[
+                TimeSlotGroup.model_validate(g) for g in data["timeslot_groups"]
+            ],
         )
 
     # ── Nested resources ────────────────────────────────────────────────
@@ -455,6 +464,62 @@ class _EventsResource(_BaseResource):
         """
         self._delete(f"/open/v1/events/{event_id}")
 
+    def create_batch(
+        self,
+        schedule_id: str,
+        events: list[EventInput],
+        *,
+        allow_duplicate_title: bool = False,
+    ) -> list[Event]:
+        """Batch-create events in a schedule.
+
+        Requires scope ``entities:write``.
+
+        Accepts 1–100 events; all events are validated and written in a single
+        transaction, so if any one fails the whole batch is rejected. By default
+        events with a title already present in the schedule (or in this batch)
+        are rejected with a ``409``; pass ``allow_duplicate_title=True`` to
+        permit duplicates.
+
+        The returned list follows the order of *events*.
+
+        Parameters
+        ----------
+        schedule_id:
+            The schedule to add the events to.
+        events:
+            The event fields to create (each must carry this ``schedule_id``).
+        allow_duplicate_title:
+            Allow creating events with titles that already exist.
+        """
+        body = EventBatchCreateRequest(events=events)
+        params = {"allow_duplicate_title": "true"} if allow_duplicate_title else None
+        resp = self._request(
+            "POST",
+            f"/open/v1/schedules/{schedule_id}/events/batch",
+            params=params,
+            json_body=body,
+        )
+        return [Event.model_validate(item) for item in resp.json()]
+
+    def delete_batch(self, ids: list[str]) -> EventBatchDeleteResponse:
+        """Batch-delete events by ID.
+
+        Requires scope ``entities:write``. **This cannot be undone.**
+
+        Accepts 1–100 IDs (counting duplicates); each ID is processed once.
+        IDs that don't exist, are already deleted, or don't belong to this
+        account do not fail the batch — they are listed in ``not_found_ids``.
+
+        Parameters
+        ----------
+        ids:
+            The event IDs to delete.
+        """
+        body = EventBatchDeleteRequest(ids=ids)
+        resp = self._request("DELETE", "/open/v1/events/batch", json_body=body)
+        return EventBatchDeleteResponse.model_validate(resp.json())
+
 
 # ── Adjustments ──────────────────────────────────────────────────────────────
 
@@ -487,6 +552,31 @@ class _AdjustmentsResource(_BaseResource):
         )
         return Adjustment.model_validate(data)
 
+    def get(self, adjustment_id: str) -> Adjustment:
+        """Get a single adjustment by ID.
+
+        Requires scope ``entities:read``.
+        """
+        data = self._get(f"/open/v1/adjustments/{adjustment_id}")
+        return Adjustment.model_validate(data)
+
+    def update(self, adjustment_id: str, input: AdjustmentPatch) -> Adjustment:
+        """Update an adjustment (partial).
+
+        Requires scope ``entities:write``.
+        Only the fields passed are changed; omitted fields keep their values.
+
+        Parameters
+        ----------
+        adjustment_id:
+            The adjustment to update.
+        input:
+            The fields to update (all optional).
+        """
+        body = input.model_dump(exclude_unset=True)
+        data = self._patch(f"/open/v1/adjustments/{adjustment_id}", body=body)
+        return Adjustment.model_validate(data)
+
     def delete(self, adjustment_id: str) -> None:
         """Delete an adjustment.
 
@@ -494,6 +584,30 @@ class _AdjustmentsResource(_BaseResource):
         The original course schedule is unaffected.
         """
         self._delete(f"/open/v1/adjustments/{adjustment_id}")
+
+
+# ── Timeslot groups ──────────────────────────────────────────────────────────
+
+
+class _TimeslotGroupsResource(_BaseResource):
+    """``/open/v1/timeslot-groups`` endpoints (account-level resources)."""
+
+    def get_all(self) -> list[TimeSlotGroup]:
+        """Get all timeslot (作息) groups and their periods for this account.
+
+        Requires scope ``entities:read``.
+        The default group is listed first.
+        """
+        data = self._get("/open/v1/timeslot-groups")
+        return [TimeSlotGroup.model_validate(item) for item in data]
+
+    def get(self, group_id: str) -> TimeSlotGroup:
+        """Get a single timeslot group by ID.
+
+        Requires scope ``entities:read``.
+        """
+        data = self._get(f"/open/v1/timeslot-groups/{group_id}")
+        return TimeSlotGroup.model_validate(data)
 
 
 # ── Tasks ────────────────────────────────────────────────────────────────────
@@ -611,6 +725,8 @@ class MeetSchedule:
         """Access adjustment endpoints."""
         self.tasks = _TasksResource(self._client)
         """Access task endpoints."""
+        self.timeslot_groups = _TimeslotGroupsResource(self._client)
+        """Access timeslot (作息) group endpoints."""
 
     def close(self) -> None:
         """Close the underlying HTTP client (releases connections)."""

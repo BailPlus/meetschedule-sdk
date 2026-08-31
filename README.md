@@ -81,6 +81,7 @@ asyncio.run(main())
 | `client.events` | `/open/v1/schedules/{id}/events` | `entities:read` / `entities:write` |
 | `client.adjustments` | `/open/v1/schedules/{id}/adjustments` | `entities:read` / `entities:write` |
 | `client.tasks` | `/open/v1/tasks` | `entities:read` / `entities:write` |
+| `client.timeslot_groups` | `/open/v1/timeslot-groups` | `entities:read` |
 
 ### Schedules
 
@@ -113,13 +114,17 @@ asyncio.run(main())
 | `client.events.create(EventInput(...), allow_duplicate_title=...)` | 新建事件 |
 | `client.events.update(event_id, EventPatch(...))` | 更新事件 |
 | `client.events.delete(event_id)` | 删除事件 |
+| `client.events.create_batch(schedule_id, [EventInput(...), ...], allow_duplicate_title=...)` | 批量新建事件（1–100 条，单事务） |
+| `client.events.delete_batch([event_id, ...])` | 批量删除事件（返回 `EventBatchDeleteResponse`） |
 
 ### Adjustments（调停课）
 
 | 方法 | 说明 |
 |---|---|
 | `client.adjustments.get_all(schedule_id)` | 列出调停课 |
+| `client.adjustments.get(adjustment_id)` | 获取单个调停课 |
 | `client.adjustments.create(AdjustmentInput(...))` | 新建调停课 |
+| `client.adjustments.update(adjustment_id, AdjustmentPatch(...))` | 更新调停课 |
 | `client.adjustments.delete(adjustment_id)` | 删除调停课 |
 
 ### Tasks（待办）
@@ -131,6 +136,13 @@ asyncio.run(main())
 | `client.tasks.create(TaskInput(...))` | 新建待办 |
 | `client.tasks.update(task_id, TaskPatch(...))` | 更新待办 |
 | `client.tasks.delete(task_id)` | 删除待办 |
+
+### Timeslot groups（作息组）
+
+| 方法 | 说明 |
+|---|---|
+| `client.timeslot_groups.get_all()` | 列出当前账号的全部作息组及节次（默认组排最前） |
+| `client.timeslot_groups.get(group_id)` | 获取单个作息组及节次详情 |
 
 ## 错误处理
 

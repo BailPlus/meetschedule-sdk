@@ -101,11 +101,15 @@ class Source(StrEnum):
 class Reminder(BaseModel):
     """A reminder rule attached to a course or event."""
 
-    offset_minutes: int = Field(ge=0)
+    offset_minutes: int = Field(ge=0, le=5256000)
     """How many minutes before the anchor point to remind."""
 
     anchor: ReminderAnchor = ReminderAnchor.START
     """Anchor point: start time or end/due time."""
+
+
+# At most 32 reminder rules per resource (API ``Reminders`` schema).
+ReminderList = Annotated[list[Reminder], Field(max_length=32)]
 
 
 # ── Schedule models ────────────────────────────────────────────────────────
@@ -152,6 +156,12 @@ class ScheduleUpdate(BaseModel):
     week_start_day: WeekStartDay | None = None
     """First day of the week view: 1=Monday, 7=Sunday."""
 
+    display_together: bool | None = None
+    """Whether to display this schedule together with the currently-active
+    schedule on the same scroll axis. Opening it (or resizing the semester)
+    fails with ``409`` if the week ranges overlap any currently-displayed
+    schedule."""
+
 
 class Schedule(ScheduleInput):
     """A full schedule object returned by the API."""
@@ -159,8 +169,13 @@ class Schedule(ScheduleInput):
     id: str
     """Schedule ID (opaque string)."""
 
-    source: Source
-    """How the schedule was created."""
+    source: Annotated[Source | str, Field(union_mode="left_to_right")]
+    """How the schedule was created. Known values are parsed as ``Source``
+    members; historical records may carry other strings, which are kept as-is."""
+
+    default_timeslot_group_id: str | None = None
+    """ID of the default timeslot (作息) group; fetch its slots via the
+    timeslot-groups endpoints."""
 
     sort_order: int
     """Sort weight; lower values appear first in lists."""
@@ -169,11 +184,56 @@ class Schedule(ScheduleInput):
     """Whether this is the schedule currently in use (the one with the
     smallest ``sort_order``)."""
 
+    display_together: bool = False
+    """Whether this schedule is displayed together with the currently-active
+    schedule. Always ``False`` for newly-created schedules."""
+
     course_count: int
     """Number of courses (excluding deleted)."""
 
     event_count: int
     """Number of events (excluding deleted)."""
+
+    updated_at: str
+    """Last modification time (UTC, ISO 8601)."""
+
+
+# ── Timeslot models ─────────────────────────────────────────────────────────
+
+
+class TimeSlot(BaseModel):
+    """A single period (节次) inside a timeslot group."""
+
+    id: str
+    """Timeslot ID (opaque string)."""
+
+    index: int
+    """Period ordinal, matching a meeting's ``start_period``/``end_period``."""
+
+    label: str | None = None
+    """Display name."""
+
+    start_time: str
+    """Start clock time, usually ``HH:MM``."""
+
+    end_time: str
+    """End clock time, usually ``HH:MM``."""
+
+
+class TimeSlotGroup(BaseModel):
+    """A group of periods (作息组) — an account-level resource."""
+
+    id: str
+    """Timeslot group ID (opaque string)."""
+
+    name: str
+    """Timeslot group name."""
+
+    is_default: bool
+    """Whether this is the account's default timeslot group."""
+
+    slots: list[TimeSlot]
+    """Periods, sorted by ``index`` ascending."""
 
     updated_at: str
     """Last modification time (UTC, ISO 8601)."""
@@ -253,7 +313,7 @@ class CourseInput(BaseModel):
     note: str | None = None
     """Plain-text note."""
 
-    reminders: list[Reminder] | None = None
+    reminders: ReminderList | None = None
     """Reminder rules."""
 
 
@@ -295,7 +355,7 @@ class CoursePatch(BaseModel):
     note: str | None = None
     """Plain-text note."""
 
-    reminders: list[Reminder] | None = None
+    reminders: ReminderList | None = None
     """Reminder rules."""
 
 
@@ -308,8 +368,13 @@ class Course(CourseInput):
     schedule_id: str
     """ID of the schedule this course belongs to."""
 
-    origin: Origin
-    """How this course was created."""
+    category: Annotated[Category | str, Field(union_mode="left_to_right")] | None = None
+    """Normalised category. Known values are parsed as ``Category`` members;
+    historical records may carry other strings, which are kept as-is."""
+
+    origin: Annotated[Origin | str, Field(union_mode="left_to_right")]
+    """How this course was created. Known values are parsed as ``Origin``
+    members; historical records may carry other strings, which are kept as-is."""
 
     external_id: str | None = None
     """Original identifier from 教务 system (for import dedup)."""
@@ -363,7 +428,7 @@ class EventInput(BaseModel):
     note: str | None = None
     """Plain-text note."""
 
-    reminders: list[Reminder] | None = None
+    reminders: ReminderList | None = None
     """Reminder rules."""
 
     done: bool = False
@@ -413,7 +478,7 @@ class EventPatch(BaseModel):
     note: str | None = None
     """Plain-text note."""
 
-    reminders: list[Reminder] | None = None
+    reminders: ReminderList | None = None
     """Reminder rules."""
 
     done: bool | None = None
@@ -426,11 +491,56 @@ class Event(EventInput):
     id: str
     """Event ID (opaque string)."""
 
-    origin: Origin
-    """How this event was created."""
+    type: Annotated[EventType | str, Field(union_mode="left_to_right")]
+    """Event type. Known values are parsed as ``EventType`` members; historical
+    records may carry other strings, which are kept as-is."""
+
+    time_mode: Annotated[TimeMode | str, Field(union_mode="left_to_right")]
+    """How the event expresses its time. Known values are parsed as ``TimeMode``
+    members; historical records may carry other strings, which are kept as-is."""
+
+    origin: Annotated[Origin | str, Field(union_mode="left_to_right")]
+    """How this event was created. Known values are parsed as ``Origin``
+    members; historical records may carry other strings, which are kept as-is."""
 
     updated_at: str
     """Last modification time (UTC, ISO 8601)."""
+
+
+# ── Event batch models ──────────────────────────────────────────────────────
+
+
+class EventBatchCreateRequest(BaseModel):
+    """Body for the batch-create-events endpoint.
+
+    ``events`` must contain between 1 and 100 items; the response returns the
+    created events in the same order.
+    """
+
+    events: Annotated[list[EventInput], Field(min_length=1, max_length=100)]
+
+
+class EventBatchDeleteRequest(BaseModel):
+    """Body for the batch-delete-events endpoint.
+
+    ``ids`` must contain between 1 and 100 items; duplicate IDs are only
+    processed once.
+    """
+
+    ids: Annotated[
+        list[Annotated[str, Field(min_length=1)]], Field(min_length=1, max_length=100)
+    ]
+
+
+class EventBatchDeleteResponse(BaseModel):
+    """Result of a batch-delete-events request."""
+
+    deleted_ids: list[str]
+    """IDs actually deleted, in first-seen order."""
+
+    not_found_ids: list[str]
+    """IDs that don't exist, are already deleted, or don't belong to this
+    account."""
 
 
 # ── Adjustment models ──────────────────────────────────────────────────────
@@ -479,14 +589,64 @@ class AdjustmentInput(BaseModel):
     """Substitute teacher; leave empty if unchanged."""
 
 
+class AdjustmentPatch(BaseModel):
+    """Fields a user can set when updating an adjustment (PATCH).
+
+    All fields are optional; only explicitly set fields are sent to the API.
+    ``schedule_id``, ``source``, ``id`` and ``updated_at`` are server-controlled
+    and cannot be modified.
+    """
+
+    type: AdjustmentType | None = None
+    """Adjustment type: cancel, makeup, or reschedule."""
+
+    course_id: str | None = None
+    """Linked course ID; can be None for custom holiday adjustments."""
+
+    origin_week: int | None = None
+    """Original week (required for cancel / reschedule)."""
+
+    origin_day: DayOfWeek | None = None
+    """Original day of week."""
+
+    origin_start_period: int | None = None
+    """Original starting period."""
+
+    origin_end_period: int | None = None
+    """Original ending period (inclusive)."""
+
+    target_week: int | None = None
+    """Target week (required for makeup / reschedule)."""
+
+    target_day: DayOfWeek | None = None
+    """Target day of week."""
+
+    target_start_period: int | None = None
+    """Target starting period."""
+
+    target_end_period: int | None = None
+    """Target ending period (inclusive)."""
+
+    target_location: str | None = None
+    """New location for makeup / reschedule."""
+
+    substitute_teacher: str | None = None
+    """Substitute teacher; leave empty if unchanged."""
+
+
 class Adjustment(AdjustmentInput):
     """A full adjustment object returned by the API."""
 
     id: str
     """Adjustment ID (opaque string)."""
 
-    source: Source
-    """Data source."""
+    type: Annotated[AdjustmentType | str, Field(union_mode="left_to_right")]
+    """Adjustment type. Known values are parsed as ``AdjustmentType`` members;
+    historical records may carry other strings, which are kept as-is."""
+
+    source: Annotated[Source | str, Field(union_mode="left_to_right")]
+    """Data source. Known values are parsed as ``Source`` members; historical
+    records may carry other strings, which are kept as-is."""
 
     updated_at: str
     """Last modification time (UTC, ISO 8601)."""
@@ -510,8 +670,11 @@ class TaskInput(BaseModel):
     due_at: str | None = None
     """Due time (ISO 8601); no due date if None."""
 
-    sort_order: int | None = None
+    sort_order: int = Field(0, ge=-1000000, le=1000000)
     """Sort weight; lower values appear first."""
+
+    reminders: ReminderList | None = None
+    """Reminder rules. When set, ``due_at`` must also be set."""
 
 
 class TaskPatch(BaseModel):
@@ -533,8 +696,11 @@ class TaskPatch(BaseModel):
     due_at: str | None = None
     """Due time (ISO 8601); no due date if None."""
 
-    sort_order: int | None = None
+    sort_order: int | None = Field(None, ge=-1000000, le=1000000)
     """Sort weight; lower values appear first."""
+
+    reminders: ReminderList | None = None
+    """Reminder rules."""
 
 
 class Task(TaskInput):
@@ -551,7 +717,8 @@ class Task(TaskInput):
 
 
 class ScheduleBundle(BaseModel):
-    """Full schedule snapshot: schedule + courses + events + adjustments."""
+    """Full schedule snapshot: schedule + courses + events + adjustments
+    + the account's timeslot groups."""
 
     schedule: Schedule
     """The schedule itself."""
@@ -564,6 +731,9 @@ class ScheduleBundle(BaseModel):
 
     adjustments: list[Adjustment]
     """All adjustments."""
+
+    timeslot_groups: list[TimeSlotGroup]
+    """All the account's timeslot groups (identical across schedules)."""
 
 
 # ── Error model ────────────────────────────────────────────────────────────
