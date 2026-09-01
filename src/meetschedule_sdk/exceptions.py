@@ -67,6 +67,10 @@ class NotFoundError(ApiException):
     """HTTP 404 — Resource not found or doesn't belong to this account."""
 
 
+class ConflictError(ApiException):
+    """HTTP 429 — Resource Conflict"""
+
+
 class UnprocessableEntityError(ApiException):
     """HTTP 422 — Request body validation failed."""
 
@@ -81,6 +85,7 @@ _STATUS_CODE_TO_EXCEPTION: dict[int, type[ApiException]] = {
     401: UnauthorizedError,
     403: ForbiddenError,
     404: NotFoundError,
+    409: ConflictError,
     422: UnprocessableEntityError,
     429: TooManyRequestsError,
 }
