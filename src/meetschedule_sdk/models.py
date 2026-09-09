@@ -95,6 +95,15 @@ class Source(StrEnum):
     SCHOOL_IMPORT = "school_import"  # Schedule的source特有
 
 
+class Scope(StrEnum):
+    """API key permission scope."""
+
+    SCHEDULE_READ = "schedule:read"
+    SCHEDULE_WRITE = "schedule:write"
+    ENTITIES_READ = "entities:read"
+    ENTITIES_WRITE = "entities:write"
+
+
 # ── Shared models ──────────────────────────────────────────────────────────
 
 
@@ -734,6 +743,17 @@ class ScheduleBundle(BaseModel):
 
     timeslot_groups: list[TimeSlotGroup]
     """All the account's timeslot groups (identical across schedules)."""
+
+
+# ── Key models ─────────────────────────────────────────────────────────────
+
+
+class ApiKeyScopes(BaseModel):
+    """The permission scopes granted to an API key."""
+
+    scopes: list[Annotated[Scope | str, Field(union_mode="left_to_right")]]
+    """The scope strings this key holds. Known values are parsed as ``Scope``
+    members; future/unknown scopes are kept as plain strings."""
 
 
 # ── Error model ────────────────────────────────────────────────────────────

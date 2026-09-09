@@ -82,6 +82,7 @@ asyncio.run(main())
 | `client.adjustments` | `/open/v1/schedules/{id}/adjustments` | `entities:read` / `entities:write` |
 | `client.tasks` | `/open/v1/tasks` | `entities:read` / `entities:write` |
 | `client.timeslot_groups` | `/open/v1/timeslot-groups` | `entities:read` |
+| `client.key` | `/open/v1/key` | 无（只要 Key 有效） |
 
 ### Schedules
 
@@ -143,6 +144,12 @@ asyncio.run(main())
 |---|---|
 | `client.timeslot_groups.get_all()` | 列出当前账号的全部作息组及节次（默认组排最前） |
 | `client.timeslot_groups.get(group_id)` | 获取单个作息组及节次详情 |
+
+### API Key（当前 Key 的权限）
+
+| 方法 | 说明 |
+|---|---|
+| `client.key.get()` | 返回当前 Key 拥有的全部 scope（`ApiKeyScopes`） |
 
 ## 错误处理
 

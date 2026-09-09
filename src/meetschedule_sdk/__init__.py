@@ -45,6 +45,7 @@ from meetschedule_sdk.models import (
     AdjustmentPatch,
     AdjustmentType,
     ApiError,
+    ApiKeyScopes,
     Category,
     Course,
     CourseInput,
@@ -66,6 +67,7 @@ from meetschedule_sdk.models import (
     ScheduleBundle,
     ScheduleInput,
     ScheduleUpdate,
+    Scope,
     Source,
     Task,
     TaskInput,
@@ -99,6 +101,7 @@ __all__ = [
     "Origin",
     "ReminderAnchor",
     "Source",
+    "Scope",
     "WeekStartDay",
     # Models
     "ScheduleInput",
@@ -126,4 +129,5 @@ __all__ = [
     "TimeSlotGroup",
     "Reminder",
     "ApiError",
+    "ApiKeyScopes",
 ]

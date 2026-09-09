@@ -42,6 +42,7 @@ from meetschedule_sdk.models import (
     AdjustmentInput,
     AdjustmentPatch,
     ApiError,
+    ApiKeyScopes,
     Course,
     CourseInput,
     CoursePatch,
@@ -671,6 +672,22 @@ class _TasksResource(_BaseResource):
         self._delete(f"/open/v1/tasks/{task_id}")
 
 
+# ── API key ─────────────────────────────────────────────────────────────────
+
+
+class _KeyResource(_BaseResource):
+    """``/open/v1/key`` endpoints (API-key introspection)."""
+
+    def get(self) -> ApiKeyScopes:
+        """Get the permission scopes granted to the current API key.
+
+        Only requires a valid API key — no business scope is needed — so this
+        can also be used to inspect a key that has no scopes assigned.
+        """
+        data = self._get("/open/v1/key")
+        return ApiKeyScopes.model_validate(data)
+
+
 # ── Main client ──────────────────────────────────────────────────────────────
 
 
@@ -727,6 +744,8 @@ class MeetSchedule:
         """Access task endpoints."""
         self.timeslot_groups = _TimeslotGroupsResource(self._client)
         """Access timeslot (作息) group endpoints."""
+        self.key = _KeyResource(self._client)
+        """Access the current API key's info (scopes)."""
 
     def close(self) -> None:
         """Close the underlying HTTP client (releases connections)."""

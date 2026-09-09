@@ -22,6 +22,7 @@ from meetschedule_sdk.models import (
     Adjustment,
     AdjustmentInput,
     AdjustmentPatch,
+    ApiKeyScopes,
     Course,
     CourseInput,
     CoursePatch,
@@ -583,6 +584,22 @@ class _AsyncTasksResource(_AsyncBaseResource):
         await self._delete(f"/open/v1/tasks/{task_id}")
 
 
+# ── API key ─────────────────────────────────────────────────────────────────
+
+
+class _AsyncKeyResource(_AsyncBaseResource):
+    """Async ``/open/v1/key`` endpoints (API-key introspection)."""
+
+    async def get(self) -> ApiKeyScopes:
+        """Get the permission scopes granted to the current API key.
+
+        Only requires a valid API key — no business scope is needed — so this
+        can also be used to inspect a key that has no scopes assigned.
+        """
+        data = await self._get("/open/v1/key")
+        return ApiKeyScopes.model_validate(data)
+
+
 # ── Main async client ────────────────────────────────────────────────────────
 
 
@@ -640,6 +657,8 @@ class AsyncMeetSchedule:
         """Access task endpoints."""
         self.timeslot_groups = _AsyncTimeslotGroupsResource(self._client)
         """Access timeslot (作息) group endpoints."""
+        self.key = _AsyncKeyResource(self._client)
+        """Access the current API key's info (scopes)."""
 
     async def close(self) -> None:
         """Close the underlying async HTTP client (releases connections)."""
