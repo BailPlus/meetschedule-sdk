@@ -348,7 +348,7 @@ wheels = [
 
 [[package]]
 name = "meetschedule-sdk"
-version = "1.4"
+version = "1.5"
 source = { editable = "." }
 dependencies = [
     { name = "httpx2" },
