@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import Any, Self
 
-import httpx
+import httpx2
 
 from meetschedule_sdk.exceptions import (
     ConfigurationError,
@@ -65,7 +65,7 @@ from meetschedule_sdk.models import (
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _parse_error_body(response: httpx.Response) -> ApiError | None:
+def _parse_error_body(response: httpx2.Response) -> ApiError | None:
     """Try to parse an error response body into an ``ApiError``."""
     try:
         data = response.json()
@@ -78,7 +78,7 @@ def _parse_error_body(response: httpx.Response) -> ApiError | None:
         return None
 
 
-def _raise_on_error(response: httpx.Response) -> None:
+def _raise_on_error(response: httpx2.Response) -> None:
     """Raise an ``ApiException`` subclass if *response* indicates an error."""
     if response.is_success or response.status_code == 204:
         return
@@ -121,7 +121,7 @@ def _to_dict(obj: Any) -> Any:
 class _BaseResource:
     """Base class for resource sub-clients."""
 
-    def __init__(self, client: httpx.Client) -> None:
+    def __init__(self, client: httpx2.Client) -> None:
         self._client = client
 
     def _request(
@@ -131,7 +131,7 @@ class _BaseResource:
         *,
         params: dict[str, Any] | None = None,
         json_body: Any = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """Send an HTTP request and handle errors."""
         json_data = _to_dict(json_body) if json_body is not None else None
 
@@ -142,7 +142,7 @@ class _BaseResource:
                 params=params,
                 json=json_data,
             )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             raise NetworkError(str(exc)) from exc
 
         _raise_on_error(response)
@@ -721,13 +721,13 @@ class MeetSchedule:
         self,
         api_key: str,
         base_url: str = "https://api.meetschedule.top",
-        client: httpx.Client | None = None,
+        client: httpx2.Client | None = None,
     ) -> None:
         if not api_key:
             raise ConfigurationError("api_key must not be empty")
 
         if client is None:
-            client = httpx.Client()
+            client = httpx2.Client()
         client.base_url = base_url
         client.headers["X-API-Key"] = api_key
         self._client = client

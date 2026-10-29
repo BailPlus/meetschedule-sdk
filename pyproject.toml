@@ -6,10 +6,13 @@ readme = "README.md"
 license = 'MIT'
 authors = [{ name = "Bail", email = "2915289604@qq.com" }]
 requires-python = ">=3.12"
-dependencies = ["httpx>=0.28.1", "pydantic>=2.13.4"]
+dependencies = [
+ "httpx2>=2.16.0",
+ "pydantic>=2.13.4",
+]
 
 [build-system]
-requires = ["uv_build>=0.12,<0.13"]
+requires = ["uv_build>=0.12,<0.14"]
 build-backend = "uv_build"
 
 [tool.ruff.lint]
