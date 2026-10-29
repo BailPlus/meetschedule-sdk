@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Self
 
-import httpx
+import httpx2
 
 from meetschedule_sdk.client import _raise_on_error, _to_dict
 from meetschedule_sdk.exceptions import ConfigurationError, NetworkError
@@ -48,7 +48,7 @@ from meetschedule_sdk.models import (
 class _AsyncBaseResource:
     """Base class for async resource sub-clients."""
 
-    def __init__(self, client: httpx.AsyncClient) -> None:
+    def __init__(self, client: httpx2.AsyncClient) -> None:
         self._client = client
 
     async def _request(
@@ -58,7 +58,7 @@ class _AsyncBaseResource:
         *,
         params: dict[str, Any] | None = None,
         json_body: Any = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         json_data = _to_dict(json_body) if json_body is not None else None
 
         try:
@@ -68,7 +68,7 @@ class _AsyncBaseResource:
                 params=params,
                 json=json_data,
             )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             raise NetworkError(str(exc)) from exc
 
         _raise_on_error(response)
@@ -634,13 +634,13 @@ class AsyncMeetSchedule:
         self,
         api_key: str,
         base_url: str = "https://api.meetschedule.top",
-        client: httpx.AsyncClient | None = None,
+        client: httpx2.AsyncClient | None = None,
     ) -> None:
         if not api_key:
             raise ConfigurationError("api_key must not be empty")
 
         if client is None:
-            client = httpx.AsyncClient()
+            client = httpx2.AsyncClient()
         client.base_url = base_url
         client.headers = {"X-API-Key": api_key}
         self._client = client
