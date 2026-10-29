@@ -377,7 +377,9 @@ class Course(CourseInput):
     schedule_id: str
     """ID of the schedule this course belongs to."""
 
-    category: Annotated[Category | str, Field(union_mode="left_to_right")] | None = None
+    category: Annotated[Category | str, Field(union_mode="left_to_right")] | None = (  # ty: ignore[invalid-attribute-override]
+        None
+    )
     """Normalised category. Known values are parsed as ``Category`` members;
     historical records may carry other strings, which are kept as-is."""
 
@@ -500,11 +502,11 @@ class Event(EventInput):
     id: str
     """Event ID (opaque string)."""
 
-    type: Annotated[EventType | str, Field(union_mode="left_to_right")]
+    type: Annotated[EventType | str, Field(union_mode="left_to_right")]  # ty: ignore[invalid-attribute-override]
     """Event type. Known values are parsed as ``EventType`` members; historical
     records may carry other strings, which are kept as-is."""
 
-    time_mode: Annotated[TimeMode | str, Field(union_mode="left_to_right")]
+    time_mode: Annotated[TimeMode | str, Field(union_mode="left_to_right")]  # ty: ignore[invalid-attribute-override]
     """How the event expresses its time. Known values are parsed as ``TimeMode``
     members; historical records may carry other strings, which are kept as-is."""
 
@@ -649,7 +651,7 @@ class Adjustment(AdjustmentInput):
     id: str
     """Adjustment ID (opaque string)."""
 
-    type: Annotated[AdjustmentType | str, Field(union_mode="left_to_right")]
+    type: Annotated[AdjustmentType | str, Field(union_mode="left_to_right")]  # ty: ignore[invalid-attribute-override]
     """Adjustment type. Known values are parsed as ``AdjustmentType`` members;
     historical records may carry other strings, which are kept as-is."""
 
